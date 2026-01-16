@@ -1,0 +1,1053 @@
+---
+title: "Data602FinalAssignment - Housing Prices in California 2017"
+author: "Mackenzie Kreutzer, Hashzaib Rahat, Harleen Kaur, Yaowei Sun, Zihan Geng"
+date: "2024-10-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+
+The project is based on California Housing Prices, using data analysis with hypothesis testing and testing the hypothesis's with linear regression. Our linear regression will be done on the price of the houses in the state of California. The dataset that we are using for our analysis is taken from Kaggle (California housing prices, 2017), which provides information related to the location of the house, number of rooms in the neighbourhood, age of the house, total number of houses in the area, the population related to the longitude and latitude of the place, median income, the median household income of the location  and the proximity of the house from the ocean. It is important to note that this dataset just contains houses from 2017 and can not be verified as a full population dataset, but instead can only be considered a sample.
+
+The goal is to explore the relationship between the variables in the dataset, creating visualizations on the relationship between the variables along with testing the hypothesis so we can come to a conclusion. 
+
+# EDA
+
+Note: The dataset considers a whole block as an entity instead of just a singular house. All of our values are medians of values as there is multiple houses in a block. 
+
+Before we can start hypothesis testing and regression, we need to perform EDA to better understand the dataset and be able to create the visualization for observing the trends in the data. The visualization will guide in the formulation of the hypothesis. 
+
+To start, we will load the dataset into R and show the first couple rows to get an idea of what the dataset will contain. 
+```{r}
+# Load CSV file
+data <- read.csv("C:/Users/MackenzieKreutzer/OneDrive - The Kreutzer House/Documents/Data 602/housing cali.csv", header = TRUE, sep = ",")
+
+# View the first few rows of the dataset
+head(data)
+```
+Now that we are aware of the types of coloumns and data that is present in the dataset, we will now check to see if the dataset is complete, by looking for NA's in the data. 
+```{r}
+sum(is.na(data))
+```
+As the sum of NA's is larger then zero, we can determine that there are missing values in the dataset. In order to keep our data conistent, we will remove all rows that contain NA.
+```{r}
+# Remove NA's
+dataset <- na.omit(data)
+
+# Show the first few rows
+head(dataset)
+```
+Now that we have cleaned the dataset by removing all rows that contain NA values, we want to have visibility to how many rows and columns we have present in this data.
+```{r}
+# Count columns 
+ncol(dataset)
+
+# Count rows
+nrow(dataset)
+```
+We know this dataset has 10 columns and 20433 rows present after removing any blank rows.
+
+After our initial cleaning and analysis on the data set, we will start performing our visualizations and statistics on the various columns.
+
+## House Median Age Analysis
+
+To start we will create a box plot on one of our independent variables to gather some basic statistics on the data. We will start with the column containing the Median Age of the houses. 
+```{r}
+boxplot(dataset$housing_median_age, main="Boxplot of House Median Age")
+```
+This box plot will tell us that the mean is hovering just below 30 years old, the first quartile (where 25% of the data falls under) is about 27 years old, and the third quartile (where 75% of the data falls under) is just over 35 years old. We can use the quartiles to calculate the IQR which will tell us where 50% of our data will lie. To calculate the IQR we will use the following code:
+```{r}
+iqr_age <- IQR(dataset$housing_median_age)
+
+iqr_age
+```
+Having an IQR of 19 means that the central 50% of the age data spans 19 years.
+
+We then want to calculate the mean and standard deviation of the median age. We want to see what the mean age of the houses in the area are and the standard deviation for this section of the dataset.
+```{r}
+# Calculate the mean 
+mean_age <- mean(dataset$housing_median_age)
+
+# Calculate the standard deviation
+sd_age <- sd(dataset$housing_median_age)
+
+mean_age
+sd_age
+```
+We can determine that the mean age of the houses for sale in California are 28.6 years old, with a standard deviation of 12.6 years. Using this knowledge, we will visualize the histogram of this dataset to see if it is normally distributed.
+```{r}
+hist(dataset$housing_median_age, main="Frequency Histogram of House Median Age", xlab = "Median Age", col = "Blue")
+```
+We can see from the above frequency histogram that it is not normally distributed. In order to calculate the 95% CI we will take a bootstrap sample so we can see where the mean of the population data will lie, as this is not a complete dataset.
+```{r}
+n <- length(dataset$housing_median_age)
+
+# Number of Bootstrap
+B <- 1000
+
+# Set seed for replicability
+set.seed(123)
+
+library(mosaic)
+
+# Run bootstrap
+age_B = do(B) * mean(sample(dataset$housing_median_age, size=n, replace = TRUE))
+
+# Calculate 95% CI 
+quantile(age_B$mean,probs=c(.025,.975))
+
+```
+The 95% Confidence Interval is (28.47, 28.81). This means we are 95% confident that the mean of the house age is between 28.47 and 28.81 years old.
+
+We can now do the same descriptive statistics on the median house value.
+
+## Median House Value Analysis
+
+We will start with creating a box plot on the column to gather some basic statistics on the the median house value. 
+```{r}
+# Remove Scientific Notation
+options(scipen = 999)
+
+boxplot(dataset$median_house_value, main="Boxplot of Median House Value")
+```
+This box plot will tell us that the mean is hovering just under '$200,000' as the average price, the first quartile (where 25% of the data falls under) is just over '$100,000', and the third quartile (where 75% of the data falls under) is about '$250,000'. We also see that we have some outliers that approaching the '$500,000' mark. We can use the quartiles to calculate the IQR which will tell us where 50% of our data will lie. To calculate the IQR we will use the following code:
+```{r}
+iqr_price <- IQR(dataset$median_house_value)
+
+iqr_price
+```
+Having an IQR of '$145,200' means that the central 50% of the age data spans '$145,200'.
+
+Now that we have some basic knowledge about the spread of the data, we will now start doing some further statistics to see how the data behaves. 
+```{r}
+# Calculate the mean 
+mean_price <- mean(dataset$median_house_value)
+
+# Calculate the standard deviation
+sd_price <- sd(dataset$median_house_value)
+
+mean_price
+sd_price
+```
+We can determine that the mean price of the houses for sale in California are "$206,864.4", with a standard deviation of '$115,435.7'. We want to see if this data is normally distributed.
+```{r}
+hist(dataset$median_house_value, main="Frequency Histogram of Median House Price", xlab = "Median Price", col = "Red")
+```
+We can see from the above frequency histogram that it is not normally distributed but instead skewed to the right. We will take a bootstrap sample as it is not normally distributed then calculate the 95% Confidence Interval so we can see where the mean of the house value data will lie.
+```{r}
+n_price <- length(dataset$median_house_value)
+
+# Number of Bootstrap
+B <- 1000
+
+# Set seed for replicability
+set.seed(123)
+
+library(mosaic)
+
+# Run bootstrap
+price_B = do(B) * mean(sample(dataset$median_house_value, size=n_price, replace = TRUE))
+
+# Calculate 95% CI 
+quantile(price_B$mean,probs=c(.025,.975))
+
+```
+The 95% Confidence Interval is (205,300.6, 208,403.0). This means we are 95% confident that the mean of the house price is between 205,300.6 and 208,403.0 dollars.
+
+Another independent variable we identified was the median household income. We ran the same descriptive statistics code on this variable as well.
+
+## Median Household Income Analysis
+
+We started with doing a box plot on the variable to see where the data lies.
+```{r}
+boxplot(dataset$median_income, ylab = "Median Income (Ten Thousand)", main="Boxplot of Median Income")
+```
+From this box plot we can see there is a large amount of outliers that is present in the dataset. We can see the mean is hovering around $30,000, the first quartile is $25,000 and third quartile is around $50,000. We can calculate the IQR like we did with the other data with the following code:
+
+
+```{r}
+iqr_income <- IQR(dataset$median_income)
+
+iqr_income
+```
+Having an IQR of 2.18 means that the central 50% of the income data spans 21.8 thousand dollars.
+
+Now that we finished some descriptive stats about how the data lies, we will do some further statistics to see how the data behaves. 
+```{r}
+# Calculate the mean 
+mean_income <- mean(dataset$median_income)
+
+# Calculate the standard deviation
+sd_income <- sd(dataset$median_income)
+
+mean_income
+sd_income
+```
+From the above, we will see that the mean median income for the houses in California is 3.87 or 38.7 thousand dollars, with a standard deviation of 1.899 or 18.99 thousand dollars. We make a frequency histogram to see if the data is normally distributed.
+
+```{r}
+hist(dataset$median_house_value, main="Frequency Histogram of Median Income", xlab = "Median Income", col = "Yellow")
+```
+The frequency histogram shows that the graph is skewed to the right. 
+
+We will take a bootstrap sample as it is not normally distributed then calculate the 95% Confidence Interval so we can see where the mean will lie for the population.
+```{r}
+n_income <- length(dataset$median_income)
+
+# Number of Bootstrap
+B <- 1000
+
+# Set seed for replicability
+set.seed(123)
+
+library(mosaic)
+
+# Run bootstrap
+income_B = do(B) * mean(sample(dataset$median_income, size=n_income, replace = TRUE))
+
+# Calculate 95% CI 
+quantile(income_B$mean,probs=c(.025,.975))
+
+```
+
+The 95% Confidence Interval is (3.85, 3.90). This means we are 95% confident that the mean of the household income is between 38.48 and 38.97 thousand dollars.
+
+## Proximity to Ocean Analysis
+
+Our last variable is a quantitative variable so we will have to do some different statistics. We will start with a frequency table to summarize how often each category appears.
+```{r}
+table(dataset$ocean_proximity)
+```
+We can see from the above, that most frequent is houses that are over an hour from the ocean, then houses that are inland, and then closer to a body of water.
+
+We now can look at the proportions of these categories through the following code:
+
+```{r}
+oceantable <- prop.table(table(dataset$ocean_proximity))
+oceantable
+```
+We can see from the proportions, that the houses under an hour from the ocean is 44% of the total dataset and making up most of the data. We wanted to visualize this in a pie chart format.
+
+```{r}
+# Legend
+lbls <- c("<1H Ocean", "Inland", "Island", "Near Bay", "Near Ocean")
+
+# Pie Chart
+pie(oceantable, main = "Proportion of Houses Relative to Ocean", labels = lbls)
+```
+
+We can then do a bar chart to see the count frequency.
+```{r}
+barplot(table(dataset$ocean_proximity), main = "Frequency of Ocean Proximity", col = "pink")
+```
+We can see from the above, that Island houses are basically non-existent and <1H from the ocean is majority of our dataset. We will have to keep this in mind when going through our analysis as we will almost have more data points from <1H Ocean then the other categories combined.
+
+# Hypothesis Identification
+
+## Constructing Hypothesis
+
+We were really curious about how the income and house value various across different ocean proximity. So we used the hypothesis test to explore it. We have five different ocean proximity,and we tried to limit our test in two groups.Since the ISLAND only has 5 records, we split "NEAR BAY" and "NEAR OCEAN" as coastal area and "<1H OCEAN" and "INLAND" as inland area. We applied hypothesis tests on these two groups for home values and incomes.
+
+Comparing two independent groups, the permutation test would be a great method to apply.
+
+The project incorporates two hypothesis tests with the goal of answering two questions:
+1. Does proximity to water significantly impact housing prices? 
+2. Is there a meaningful correlation between median income and houses near water? 
+
+In order to answer these two questions, we will develop the following hypothesis tests:
+1. House Value vs. Location Hypothesis: We will investigate whether the median house value is higher in areas near water compared to inland regions. 
+2. Income vs. Location Hypothesis: We will analyze whether the median income of residents differs in areas near water compared to inland regions. 
+
+
+## Hypothesis 1
+
+First we will try to find the difference of the median house value between houses in areas near the bay vs inland regions
+
+group1(nb):ocean_proximity=NEAR BAY OR NEAR OCEAN 
+group2(in):ocean_proximity=<1H OCEAN or INLAND
+
+$H_0$:$\mu_{nb_{value}}$=$\mu_{in_{value}}$\
+$H_1$:$\mu_{nb_{value}}$>$\mu_{in_{value}}$\
+
+We used the permutation test in the following code:
+```{r}
+
+## Select NEAR BAY AND NEAR OCEAN that are all close to water
+nearbay_hv<-dataset[(dataset$ocean_proximity == 'NEAR BAY')|(dataset$ocean_proximity=='NEAR OCEAN'), "median_house_value"]	
+
+## Calculating the Standard Deviation 
+std_nearbay <- sd(nearbay_hv)
+
+## Calculating the Mean 
+mean_nearbay<- mean(nearbay_hv)
+
+## Identifying the upper and lower limits of the data selection to eliminate outliers
+upper_limit_nearbay <- mean_nearbay+(3*std_nearbay)
+lower_limit_nearbay <- mean_nearbay-(3*std_nearbay)
+
+
+## Apply the boundaries
+nb_hv<-nearbay_hv[(nearbay_hv>lower_limit_nearbay)&(nearbay_hv<upper_limit_nearbay)]
+
+print('Standard Deviation:') 
+std_nearbay
+
+
+print('Mean:')
+mean_nearbay
+
+```
+The Standard Deviation of the median house value for houses that are near water is $122,783.5 while the mean is $253,786.7.
+
+We then compared these statistics to houses that are considered inland, or farther away from water.
+```{r}
+## Select INLAND AND <1h OCEAN as group that is not close to the ocean 
+inland_hv<-dataset[(dataset$ocean_proximity == 'INLAND')|(dataset$ocean_proximity=='<1H OCEAN'),
+                         "median_house_value"]
+
+## Calculate the Standard Deviation
+std_inland<- sd(inland_hv)
+
+## Calculate the mean
+mean_inland<- mean(inland_hv)
+
+## Identifying upper and lower bounds to eliminate outliers
+upper_limit_inland <- mean_inland+(3*std_inland)
+lower_limit_inland <- mean_inland-(3*std_inland)
+
+##apply the boundaries to elimate the outliers 
+inland_hv<-inland_hv[(inland_hv>lower_limit_inland )&(inland_hv<upper_limit_inland )]
+
+print('Standard Deviation:') 
+std_inland
+
+
+print('Mean:')
+mean_inland
+
+```
+We can see that houses that are inland have a mean of $192,009.7 and a standard deviation of $108,867.3. From first glance, we can identify that inland median house prices are much lower then median house prices that are near water.
+
+In order to test this hypothesis, we used the permutation test to find the difference in means. We did this with the following code:
+```{r}
+## Using the permutation test to identify the difference in means
+observed_diff <- mean(nb_hv) - mean(inland_hv)
+
+## Number of permutations 
+n_perm <- 1000
+
+## Setting a blank vector
+perm_test_stats <- numeric(n_perm)
+
+## Setting the seed for repeatability
+set.seed(102)
+
+## Performing the permutation test
+for (i in 1:n_perm) {
+  ## Sample from two groups
+  nb_hv_sampled<-sample(nb_hv,size=50,replace = FALSE)
+  inland_hv_sampled<-sample(inland_hv,size=50,replace = FALSE)
+  
+  ## Combine two set
+  all_hv<-c(nb_hv_sampled,inland_hv_sampled)
+  # Permute the species labels
+  permuted_data <- sample(all_hv)
+  
+  ## Calculate the test statistic for the permuted data
+  perm_nb <- permuted_data[1:50]
+  perm_inland <- all_hv[51:100]
+  perm_test_stats[i] <- mean(perm_nb) - mean(perm_inland)
+}
+
+## Calcuating the p-value
+p_value <- sum(abs(perm_test_stats)>= abs(observed_diff))/1000
+p_value
+```
+The p-value is 0.043, which is under 0.05 so we can reject the null hypothesis. This means that the median house values that are near water are higher than houses that are inland.
+
+## Hypothesis 2
+
+The next hypothesis we will be testing is to see if there is a difference of Median Income between houses that are near water vs houses that are in inland regions.
+
+We will be using the same groups as before:
+group1(nb):ocean_proximity=NEAR BAY OR NEAR OCEAN 
+group2(in):ocean_proximity=<1H OCEAN or INLAND
+
+Our hypothesis can be defined as:
+$H_0$:$\mu_{nb_{income}}$=$\mu_{in_{income}}$\
+$H_1$:$\mu_{nb_{income}}$>$\mu_{in_{income}}$\
+
+We will also be using the permutation method in order to test this hypothesis.
+```{r}
+## Select houses near water median income
+nearbay_income<-dataset[(dataset$ocean_proximity == 'NEAR BAY')|(dataset$ocean_proximity=='NEAR OCEAN'),"median_income"]
+
+## Calculating the Standard Deviation
+std_nearbay <- sd(nearbay_income)
+
+## Calculating the Mean
+mean_nearbay<- mean(nearbay_income)
+
+## Calculating the upper and lower bounds to eliminate outliers
+upper_limit_nearbay <- mean_nearbay+(3*std_nearbay)
+lower_limit_nearbay <- mean_nearbay-(3*std_nearbay)
+
+## Apply the boundaries
+nb_income<-nearbay_income[(nearbay_income>lower_limit_nearbay)&(nearbay_income<upper_limit_nearbay)]
+
+print('Standard Deviation:') 
+std_nearbay
+
+
+print('Mean:')
+mean_nearbay
+```
+The standard deviation for median income for houses near water, is 2.02 or $20.2 thousand while the mean is 4.08 or $40.8 thousand.
+
+We will now do the same process for houses that are inland.
+
+```{r}
+## Selecting median income for houses that are inland
+inland_income<-dataset[(dataset$ocean_proximity == 'INLAND')|(dataset$ocean_proximity=='<1H OCEAN'),"median_income"]
+
+## Standard Deviation
+std_inland <- sd(inland_income)
+
+## Mean
+mean_inland<- mean(inland_income)
+
+
+## Creating the boundaries to eliminate outliers
+upper_limit_inland <- mean_inland+(3*std_inland)
+lower_limit_inland<-mean_inland-(3*std_inland)
+
+## Apply the boundaries
+inland_income<-inland_income[(inland_income>lower_limit_inland)&(inland_income<upper_limit_inland)]
+
+print('Standard Deviation:') 
+std_inland
+
+
+print('Mean:')
+mean_inland
+```
+We can see that the standard deviation of median income for houses that are inland at 1.85 or $18.5 and the mean is 3.80 or $38.0 thousand. 
+
+Even from this quick analysis we can see that there is a slight difference in the median income of houses that are inland vs near the water.
+
+We will now do the permutation test to test the difference in means.
+```{r}
+## Use permutation test (difference in means)
+observed_diff <- mean(nb_income) - mean(inland_income)
+
+
+## number of permutations 
+n_perm <- 1000
+
+## Creating empty vector
+perm_test_stats <- numeric(n_perm)
+
+## Setting seed for repeatability
+set.seed(121)
+
+## Permuation code
+for (i in 1:n_perm) {
+  ##sample from two groups
+  nb_income_sampled<-sample(nb_income,size=50,replace=FALSE)
+  inland_income_sampled<-sample(inland_income,size=50,replace = FALSE)
+  ##combine two set
+  all_income<-c(nb_income_sampled,inland_income_sampled)
+  # Permute the species labels
+  permuted_data <- sample(all_income)
+  
+  # Calculate the test statistic for the permuted data
+  perm_nb <- permuted_data[1:50]
+  perm_inland <- all_income[51:100]
+  perm_test_stats[i] <- mean(perm_nb) - mean(perm_inland)
+}
+
+## Calculating the p-value
+p_value <- sum(abs(perm_test_stats)>= abs(observed_diff))/1000
+p_value
+```
+The p_value is 0.346, which we means we can not reject the null hypothesis. By doing this we mean the income of houses near water do not have a median income difference of those houses more inland.
+
+This is very interesting that the house value of near water is very high compared to the house value of houses that are more inland. Otherwise the median incomes of the two places are very similar.
+
+## Analysis
+
+First we need to perform data wrangling and data transportation on the the CSV file. 
+
+# Data Loading and Transformation. 
+
+Lets first Upload the CSV file on R-studio.
+
+```{r}
+data <- read.csv("C:/Users/MackenzieKreutzer/OneDrive - The Kreutzer House/Documents/Data 602/housing cali.csv")
+head(data)  # To confirm it's loaded
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+```
+
+There is only one column that has categorical data in it , the column as named as **ocean_proximity**.
+Lets explore the unique values in this column and its distribution or frequency.
+
+```{r create-plot}
+library(ggplot2)
+
+# Create a data frame with ocean proximity counts
+ocean_counts <- as.data.frame(table(data[["ocean_proximity"]]))
+
+# Rename columns for clarity
+colnames(ocean_counts) <- c("Ocean_Proximity", "Frequency")
+
+# Create the bar plot with ggplot2
+ggplot(ocean_counts, aes(x = Ocean_Proximity, y = Frequency)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  labs(x = "Ocean Proximity", y = "Frequency", title = "Histogram of Ocean Proximity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
+
+```
+These are the 4 unique values in the 'ocean_proximity' column as seen in the above graph.
+
+- NEAR BAY: The location is close to a bay, which is a body of water connected to an ocean or lake, typically surrounded by land on three sides.
+
+- <1H OCEAN: Likely means the location is less than one hour from the ocean, indicating a property is within a one-hour travel distance to the coast.
+
+- INLAND: The location is far from the coast or any significant body of water, typically within the interior of a landmass.
+
+- NEAR OCEAN: The location is close to the ocean but not directly on the coastline—likely within a short driving or walking distance.ISLAND: The location is on an island, a landmass completely surrounded by water.
+
+
+### Dealing with outliers 
+
+The goal is to remove outliers by defining an appropriate boundary for the data set .
+First find the mean of each numerical column. 
+
+```{r}
+# Define the columns i want to calculate mean for
+columns_to_analyze <- c("housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income", "median_house_value")
+
+# Initialize a list to store results
+mean_results <- list()
+
+# Loop through each column name and calculate mean
+for (column in columns_to_analyze) {
+  mean_results[[column]] <- mean(data[[column]], na.rm = TRUE)
+}
+
+# Print the results
+for (column in names(mean_results)) {
+  cat("Mean of", column, ":", mean_results[[column]], "\n")
+}
+
+```
+
+
+**Find the standard deviation to see the spread of data distribution of each column.** 
+```{r}
+# Calculate standard deviation for specific columns
+# Define the columns you want to calculate standard deviation for
+columns_to_analyze <- c("housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income", "median_house_value")
+
+# Initialize a list to store results
+std_dev_results <- list()
+
+# Loop through each column name and calculate standard deviation
+for (column in columns_to_analyze) {
+  std_dev_results[[column]] <- sd(data[[column]], na.rm = TRUE)
+}
+
+# Print the results
+for (column in names(std_dev_results)) {
+  cat("Standard Deviation of", column, ":", std_dev_results[[column]], "\n")
+}
+
+
+```
+**Defining Outliers**
+We calculate the upper and lower limits for detecting outliers using the following formulas:
+
+\[
+\text{Upper Limit} = \bar{X} + k \cdot \sigma
+\]
+
+\[
+\text{Lower Limit} = \bar{X} - k \cdot \sigma
+\]
+
+Where:
+
+- \( \bar{X} \) is the mean of the data,
+
+- \( \sigma \) is the standard deviation of the data,
+
+- \( k \) is a constant (in this case, \( k = 2.5 \)).
+
+Any data points outside of this range can be considered as potential outliers.
+
+
+Removing outliers using R.
+```{r}
+# Define the columns i want to analyze
+columns_to_analyze <- c("housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income", "median_house_value")
+
+# Initialize a logical vector to track outliers
+outlier_filter <- rep(TRUE, nrow(data))  # Start with all rows as TRUE (no outliers)
+
+# Set the k value
+k <- 2.5  # Adjust k 
+
+# Loop through each column to calculate outliers
+for (column in columns_to_analyze) {
+  mean_value <- mean_results[[column]]  # Mean stored in mean_results
+  std_dev_value <- std_dev_results[[column]]  # Standard deviation stored in std_dev_results
+  
+  # Define limits for outliers
+  upper_limit <- mean_value + (k * std_dev_value)
+  lower_limit <- mean_value - (k * std_dev_value)
+  
+  # Update the outlier filter
+  outlier_filter <- outlier_filter & (data[[column]] <= upper_limit) & (data[[column]] >= lower_limit)
+  
+  # Print results for each column
+  cat("Column:", column, "\n")
+  cat("Upper Limit for Outliers:", upper_limit, "\n")
+  cat("Lower Limit for Outliers:", lower_limit, "\n")
+}
+
+# Remove rows with outliers from the data frame
+cleaned_data <- data[outlier_filter, ]
+
+# Check the number of rows before and after removing outliers
+cat("Number of rows before removing outliers:", nrow(data), "\n")
+cat("Number of rows after removing outliers:", nrow(cleaned_data), "\n")
+```
+Now our data set has no outliers.
+After removing outliers i can **replace the null values with the mean of that column**. 
+I do have to convert the columns into numeric data. 
+
+```{r}
+# Define the columns i want to replace NA values for (only numeric)
+numeric_columns <- names(cleaned_data)[sapply(cleaned_data, is.numeric)]
+
+# Loop through each numeric column and replace NA with the column mean
+for (column in numeric_columns) {
+  mean_value <- mean(cleaned_data[[column]], na.rm = TRUE)  # Calculate mean excluding NA
+  cleaned_data[[column]][is.na(cleaned_data[[column]])] <- mean_value  # Replace NA with mean
+}
+
+# Check to confirm that NA values are replaced
+sum(is.na(cleaned_data))  # Should return 0 if no NAs are left
+
+
+```
+Now all the columns except 'ocean_proximity' has no null values in it.
+
+## Standardization of numeric columns from our data set.
+
+The **Min-Max** scaling is performed using the following formula:
+
+\[
+\text{Scaled Value} = \frac{x - \text{Min}(x)}{\text{Max}(x) - \text{Min}(x)}
+\]
+
+Where:
+- \( x \) is the original value,
+
+- \( \text{Min}(x) \) is the minimum value of the column, and 
+
+- \( \text{Max}(x) \) is the maximum value of the column.
+
+This formula scales the values in a column to a range of [0, 1].
+
+Since i already has removed outliers so i can work on min-max to standardize the data set:
+```{r}
+# Define the columns i want to apply Min-Max scaling to
+columns_to_scale <- c("longitude", "latitude", "housing_median_age", 
+                      "total_rooms", "total_bedrooms", "population", 
+                      "households", "median_income", "median_house_value")
+
+# Apply Min-Max scaling
+for (column in columns_to_scale) {
+  min_value <- min(cleaned_data[[column]], na.rm = TRUE)
+  max_value <- max(cleaned_data[[column]], na.rm = TRUE)
+  
+  # Perform Min-Max scaling
+  cleaned_data[[column]] <- (cleaned_data[[column]] - min_value) / (max_value - min_value)
+  
+  # Print results to confirm
+  cat("Column:", column, "\n")
+  cat("Min value after scaling:", min(cleaned_data[[column]]), "\n")
+  cat("Max value after scaling:", max(cleaned_data[[column]]), "\n\n")
+}
+
+# Check the head of the scaled dataset
+head(cleaned_data,5)
+
+```
+Note that  'ocean_proximity' column is still untouched. 
+
+## Converting `ocean_proximity` column into dummy variables.
+
+To convert the categorical `ocean_proximity` column into dummy variables, we will use one-hot encoding. Each unique value in the `ocean_proximity` column will become a new binary column, indicating the presence (1) or absence (0) of that category for each row.
+
+For example, if `ocean_proximity` has four unique values:
+- NEAR BAY
+- <1H OCEAN
+- INLAND
+- NEAR OCEAN
+
+We will create four new columns such as:
+- `ocean_NEAR_BAY`
+- `ocean_<1H_OCEAN`
+- `ocean_INLAND`
+- `ocean_NEAR_OCEAN`
+
+Each of these columns will have values of either 1 (indicating the presence of that category) or 0 (indicating its absence).
+```{r}
+# Install and load the 'fastDummies' package if not already installed
+
+library(fastDummies)
+
+# Generate dummy variables for the 'ocean_proximity' column in cleaned_data
+cleaned_data_with_dummies <- dummy_cols(cleaned_data, select_columns = "ocean_proximity", 
+                                        remove_first_dummy = FALSE,  # Keep all unique values as dummy columns
+                                        remove_selected_columns = TRUE)  # Remove the original column
+
+# Check the new dataset with dummy variables
+head(cleaned_data_with_dummies,3)
+```
+
+Now again remove the rows where at-lest one column has NULL OR NaN value in it. 
+
+```{r}
+
+# Remove rows with at least one NA value
+cleaned_data <- cleaned_data_with_dummies[complete.cases(cleaned_data_with_dummies), ]
+
+# Correcting the line
+colnames(cleaned_data) <- trimws(colnames(cleaned_data))
+
+
+# Check the number of rows before and after removing NAs
+cat("Number of rows before removing NAs:", nrow(cleaned_data), "\n")
+cat("Number of rows after removing NAs:", nrow(cleaned_data), "\n")
+head(cleaned_data,4)
+
+```
+** Now the data has been cleaned and ready for analysis.**
+
+## Anaylsis of data set.
+
+We can find co relations between variable using the heat map. This will allow us to see what variable has strong co relation with `median_house_value`. 
+
+```{r}
+# Load required libraries
+library(ggplot2)
+library(reshape2)
+
+# Select relevant columns from cleaned_data
+heatmap_data <- cleaned_data[, c("longitude", "latitude", "housing_median_age", "total_rooms", 
+                                   "total_bedrooms", "population", 
+                                   "ocean_proximity_INLAND", "ocean_proximity_ISLAND","ocean_proximity_<1H OCEAN",
+                                   "ocean_proximity_NEAR BAY", "ocean_proximity_NEAR OCEAN", 
+                                   "median_house_value")]
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(heatmap_data, use = "complete.obs")
+
+# Melt the correlation matrix for ggplot
+melted_correlation <- melt(correlation_matrix)
+
+# Create the heatmap
+ggplot(data = melted_correlation, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  labs(title = "Heatmap of Correlation Matrix",
+       x = "Variables",
+       y = "Variables") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 2) + # Add correlation values on tiles
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
+```
+There are strong co-relation of `median house value` with total_rooms,median_income ,ocean_proximity_<1H OCEAN, and ocean_proximityINLAND.
+
+As seen in the above graph there are 2 columns that `median house value` depends on. These are `meadian income` and `ocane approxmity`. lets explore this in more detail using scatter plot . 
+**Lets crate scatter plot between median income and median house value.**
+```{r}
+# Load required libraries
+library(ggplot2)
+
+# Create a scatter plot between median income and median house value
+ggplot(cleaned_data, aes(x = median_income, y = median_house_value)) +
+  geom_point(color = "blue", alpha = 0.1) + # Adjust color and transparency
+  labs(title = "Scatter Plot of Median Income vs Median House Value",
+       x = "Median Income",
+       y = "Median House Value") +
+  theme_minimal()  # Use a minimal theme for a clean look
+  
+```
+
+As it can be seen that there is direct co-relation between the `median_income` and `median_house_value`.
+The data is very scatter across the plot as well.
+
+## Feature engineering for regression model:
+After many trails and erros i have accross this , **that square root of `total_rooms` has more strong co-relation with `median_house_value`**. I will also rename the column 
+For the prove : 
+
+```{r}
+# Apply square root transformation on total_rooms
+cleaned_data$sqrt_total_rooms <- sqrt(cleaned_data$total_rooms)
+
+# Calculate the correlation between the transformed total_rooms and median_house_value
+correlation <- cor(cleaned_data$sqrt_total_rooms, cleaned_data$median_house_value, use = "complete.obs")
+
+# Print the correlation result
+cat("Correlation between square root of total_rooms and median_house_value:", correlation, "\n")
+# Renaming the column fomr "ocean_proximity<1H" to "ocean_proximity_1H"
+# Replace '<' and '>' with an underscore in the column names
+colnames(cleaned_data) <- gsub("ocean_proximity_<1H OCEAN", "ocean_proximity_1H", colnames(cleaned_data))
+# View the first three rows of the cleaned data
+head(cleaned_data, 3)
+
+```
+
+## Linear Regression Analysis
+
+In this analysis, we will apply a linear regression model to understand the relationship between various independent variables and the dependent variable, `median_house_value`. The dependent variable represents the value of the houses, while the independent variables are selected based on their potential influence on house values.
+
+**Dependent Variable:**
+- `median_house_value`: This variable represents the median value of houses in the dataset, which we aim to predict.
+
+**Independent Variables:**. 
+
+- `sqrt_total_rooms`: This variable represents the square root of the total number of rooms, which is expected to have a positive correlation with house values. The square root transformation helps to normalize the distribution of the `total_rooms` variable.
+
+- `median_income`: This variable indicates the median income of households in the area. Higher income levels are typically associated with higher house values.
+
+- `ocean_proximity_1H`: This dummy variable indicates whether the location is less than one hour from the ocean. Proximity to desirable locations, such as the ocean, often increases property values. 
+
+- `ocean_proximity_INLAND`: This dummy variable indicates whether the location is inland. Properties located inland may have different pricing dynamics compared to those closer to the coast.
+
+The model can be summarized as follows:
+
+\[
+\text{median\_house\_value} = \beta_0 + \beta_1 \cdot \text{sqrt\_total\_rooms} + \beta_2 \cdot \text{median\_income} + \beta_3 \cdot \text{ocean\_proximity\_1H} + \beta_4 \cdot \text{ocean\_proximity\_INLAND} + \epsilon
+\]
+
+Where:
+- \( \beta_0 \) is the intercept, 
+
+- \( \beta_1, \beta_2, \beta_3, \) and \( \beta_4 \) are the coefficients for each independent variable,  
+- \( \epsilon \) is the error term.
+
+This regression analysis will help us understand the extent to which each independent variable contributes to predicting house values and assess the overall fit of the model.
+```{r}
+# Load necessary library
+library(stats)
+
+# Define the linear regression model
+model <- lm(median_house_value ~ sqrt_total_rooms + median_income + ocean_proximity_1H + ocean_proximity_INLAND, data = cleaned_data)
+
+# Display the summary of the model
+summary(model)
+```
+
+### Linear Regression Equation
+
+The linear regression model can be represented by the following equation:
+
+we know the values of all parameters now:
+
+- \(\beta_0 = 0.182881\) (Intercept)
+- \(\beta_1 = 0.056920\) (Coefficient for sqrt_total_rooms)
+- \(\beta_2 = 0.590438\) (Coefficient for median_income)
+- \(\beta_3 = -0.032376\) (Coefficient for ocean_proximity_1H)
+- \(\beta_4 = -0.182739\) (Coefficient for ocean_proximity_INLAND)
+
+Thus, the specific equation is:
+
+\[
+\text{median\_house\_value} = 0.18 + 0.056 \cdot \text{sqrt\_total\_rooms} + 0.59 \cdot
+\text{median\_income} - 0.032 \cdot \text{ocean\_proximity\_1H} - 0.182 \cdot 
+\text{ocean\_proximity\_INLAND}
+\]
+
+The parameter for Median house value is \(\beta_2 = 0.590438\) . It is greater than zero indicating a positive correlation. The value if **Standard error is 0.005737**.
+
+Let see how the graph looks like with the line of liner regression model we calculated earlier.  
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Create a scatter plot with regression line
+ggplot(cleaned_data, aes(x = median_income, y = median_house_value)) +
+  geom_point(color = "blue", alpha = 0.5) +  # Scatter plot points
+  geom_smooth(method = "lm", se = FALSE, color = "red") +  # Regression line
+  labs(title = "Regression Line Between Median House Value and Median Income",
+       x = "Median Income",
+       y = "Median House Value") +
+  theme_minimal()
+```
+
+
+## Linear Regression with just Median Income
+
+In this section, we will apply a second linear regression model where the dependent variable is `median_house_value` and the independent variable is `median_income`. This model will allow us to examine the relationship between household income and house values.
+
+### Fit the Linear Regression Model
+
+We will first fit the linear regression model using the `lm()` function in R.
+```{r}
+
+# Fit the linear regression model
+model_2 <- lm(median_house_value ~ median_income, data = cleaned_data)
+
+# Display the summary of the model
+summary(model_2)
+```
+
+- The parameter value is almost 0.7 which is a point 1 increase in parameter of median value compared to "model_1 ". 
+
+- Lets explore the **confident interval** and **predictive interval** for this model between median value of the house and total income of the house. 
+
+```{r}
+# Create a new data frame for predictions
+pred_data <- data.frame(median_income = cleaned_data$median_income)
+
+# Generate predictions with confidence intervals
+predictions_conf <- predict(model_2, newdata = pred_data, interval = "confidence", level = 0.95)
+
+# Generate predictions with predictive intervals
+predictions_pred <- predict(model_2, newdata = pred_data, interval = "prediction", level = 0.95)
+
+# Combine predictions with the original data
+pred_data <- cbind(pred_data, predictions_conf, predictions_pred)
+
+# Rename columns to avoid duplicates
+colnames(pred_data)[2:4] <- c("fit_conf", "lwr_conf", "upr_conf")
+colnames(pred_data)[5:7] <- c("fit_pred", "lwr_pred", "upr_pred")
+
+```
+Now we can visualize both intervals using scatter plot. 
+
+```{r}
+# Load necessary libraries for plotting
+library(ggplot2)
+
+# Create the scatter plot with regression line and intervals
+ggplot(pred_data, aes(x = median_income)) +
+  geom_point(aes(y = fit_conf), color = "blue", alpha = 0.5) +  # Original data points
+  geom_line(aes(y = fit_conf), color = "red", size = 1) +  # Regression line
+  geom_ribbon(aes(ymin = lwr_conf, ymax = upr_conf), alpha = 0.2, fill = "green") +  # Confidence interval
+  geom_ribbon(aes(ymin = lwr_pred, ymax = upr_pred), alpha = 0.1, fill = "orange") +  # Predictive interval
+  labs(title = "Linear Regression of Median House Value vs. Median Income",
+       x = "Median Income",
+       y = "Median House Value") +
+  theme_minimal()
+
+
+```
+
+
+## Hypothesis Testing for \(\beta_1\) (Median Income)
+
+We are conducting a t-test to determine if the slope (\(\beta_1\)) for the `median_income` variable is significantly greater than 0. 
+
+### Null and Alternative Hypotheses
+
+- **Null Hypothesis \(H_0\):** \(\beta_1 = 0\) (There is no positive relationship between median income and median house value.)
+- **Alternative Hypothesis \(H_1\):** \(\beta_1 > 0\) (There is a positive relationship between median income and median house value.)
+
+### T-Statistic Formula
+
+The t-statistic is calculated as:
+
+\[
+t = \frac{\hat{\beta_1}}{SE_{\hat{\beta_1}}}
+\]
+
+Where:
+- \(\hat{\beta_1}\) is the estimated coefficient (slope) for the `median_income` variable.
+- \(SE_{\hat{\beta_1}}\) is the standard error of the coefficient.
+
+### Degrees of Freedom
+
+For a simple linear regression, the degrees of freedom are calculated as:
+
+\[
+df = n - 2
+\]
+
+Where \(n\) is the number of observations in the dataset.
+
+### Decision Rule
+
+We compare the calculated t-statistic to the critical t-value for a one-tailed test at a significance level of \(\alpha = 0.05\). The critical t-value is:
+
+\[
+t_{\text{critical}} = qt(1 - \alpha, df)
+\]
+
+If the t-statistic is greater than the critical t-value, we reject the null hypothesis in favor of the alternative hypothesis.
+
+Alternatively, we can calculate the p-value, which represents the probability of obtaining a test statistic at least as extreme as the one calculated, assuming the null hypothesis is true. If the p-value is less than 0.05, we reject the null hypothesis.
+
+```{r}
+# Step 1: Extract coefficient and standard error for median_income
+beta1 <- coef(summary(model_2))["median_income", "Estimate"]
+se_beta1 <- coef(summary(model_2))["median_income", "Std. Error"]
+
+# Step 2: Calculate the t-statistic
+t_statistic <- beta1 / se_beta1
+
+# Step 3: Degrees of freedom (n - 2 for simple linear regression)
+df <- nrow(cleaned_data) - 2
+
+# Step 4: Calculate the critical t-value for a one-tailed test at a 95% confidence level
+alpha <- 0.05  # significance level
+t_critical <- qt(1 - alpha, df)
+
+# Step 5: Compare t-statistic with the critical t-value
+if (t_statistic > t_critical) {
+  result <- "Reject the null hypothesis (beta1 > 0)"
+} else {
+  result <- "Fail to reject the null hypothesis (beta1 is not significantly greater than 0)"
+}
+
+# Output the results
+cat("t-statistic:", t_statistic, "\n")
+cat("Critical t-value:", t_critical, "\n")
+cat("Result:", result, "\n")
+
+# Optionally, you can print the p-value for additional confirmation
+p_value <- pt(t_statistic, df, lower.tail = FALSE)  # One-tailed test
+cat("p-value:", p_value, "\n")
+# Display p-value with more decimal places
+p_value <- pt(t_statistic, df, lower.tail = FALSE)  # One-tailed test
+cat("p-value:", format(p_value, scientific = TRUE), "\n")
+# Assuming you already have the t-statistic and degrees of freedom
+t_statistic <- summary(model_2)$coefficients["median_income", "t value"]
+df <- df.residual(model_2)
+
+# Two-tailed p-value
+p_value <- 2 * pt(-abs(t_statistic), df)
+p_value  # This will give you the p-value
+
+
+```
+**The P-value is less than 0.05.**
+
+## Conclusion 
+ 
+So, the p value of zero indicates that we can **reject null hypothesis** and can statistically confirm that median house value is directly co-related with house income. 
+
+
+
+
+References:
+California housing prices. (2017, November 24). Kaggle. https://www.kaggle.com/datasets/camnugent/california-housing-prices 
